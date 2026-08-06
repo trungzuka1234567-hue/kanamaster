@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Học Bảng Chữ Cái Tiếng Nhật - Hiragana & Katakana Drag & Drop SPA</title>
+  <meta name="description" content="Ứng dụng web học bảng chữ cái Tiếng Nhật Hiragana & Katakana thông minh với mẹo ghi nhớ tượng hình (Mnemonics) và game kéo thả kiểm tra tương tác mượt mà.">
+  
+  <!-- Google Fonts: Be Vietnam Pro, Outfit & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=Noto+Sans+JP:wght@400;700;900&family=Outfit:wght@500;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Canvases for Aesthetics -->
+  <canvas id="sakura-canvas"></canvas>
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="app-wrapper">
+    
+    <!-- APP HEADER -->
+    <header class="app-header">
+      <a href="#" class="brand-logo" id="logo-home-btn">
+        <span class="logo-icon">あ</span>
+        <span>KanaMaster</span>
+      </a>
+
+      <div class="header-controls">
+        <div class="stats-summary-pill" id="header-stats-pill" title="Chuỗi ngày học liên tục & Tổng điểm">
+          <span>🔥 <span id="streak-count">1</span> Ngày</span>
+          <span>•</span>
+          <span>⭐ <span id="total-score-display">0</span></span>
+        </div>
+
+        <button class="icon-btn" id="sound-toggle-btn" title="Bật/Tắt Âm thanh">
+          🔊
+        </button>
+
+        <button class="icon-btn" id="theme-toggle-btn" title="Đổi Theme Sakura / Cyberpunk Dark">
+          🌸
+        </button>
+      </div>
+    </header>
+
+    <!-- NAVIGATION BAR -->
+    <div class="nav-bar-container">
+      <div class="alphabet-switch-group">
+        <button class="alphabet-btn active" data-alphabet="hiragana">Hiragana (Chữ mềm)</button>
+        <button class="alphabet-btn" data-alphabet="katakana">Katakana (Chữ cứng)</button>
+        <button class="alphabet-btn" data-alphabet="kanji">Kanji (Hán tự)</button>
+        <button class="alphabet-btn" data-alphabet="romaji">Romaji (Phiên âm)</button>
+      </div>
+
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-view="study-view">
+          📖 1. Học Mẹo Tượng Hình
+        </button>
+        <button class="mode-tab" data-view="quiz-view">
+          🎮 2. Kéo Thả Kiểm Tra
+        </button>
+        <button class="mode-tab" data-view="explorer-view">
+          🎴 Thẻ Ghi Nhớ
+        </button>
+        <button class="mode-tab" data-view="mistakes-view" id="mistakes-tab-btn">
+          📝 3. Sổ Tay Lỗi Sai <span class="tab-badge" id="mistake-badge-count">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT VIEWS -->
+    <main class="main-content">
+      
+      <!-- ====================================================================
+           VIEW 1: SMART STUDY MODE (3D FLIP CARDS WITH MNEMONICS)
+           ==================================================================== -->
+      <section class="view-screen active" id="study-view">
+        <div class="study-container">
+          
+          <div class="group-selector-wrapper">
+            <select id="group-select" class="select-dropdown">
+              <!-- Dynamically populated from data.js -->
+            </select>
+          </div>
+
+          <!-- 3D Flip Card -->
+          <div class="card-flip-viewport" id="flip-card-element">
+            <div class="card-flip-inner">
+              
+              <!-- Front Face: Japanese Char & Pronunciation -->
+              <div class="card-face card-face-front">
+                <span class="card-badge" id="card-badge-front">Cơ bản</span>
+                
+                <div class="japanese-char-display" id="card-char-display">あ</div>
+                
+                <div class="card-romaji-display" id="card-romaji-display">a</div>
+
+                <button class="sound-speak-btn" id="card-speak-btn">
+                  🔊 Nghe Phát Âm
+                </button>
+
+                <span class="card-flip-tip">💡 Nhấn vào thẻ để xem mẹo tượng hình</span>
+              </div>
+
+              <!-- Back Face: Visual Mnemonic & Vocabulary Example -->
+              <div class="card-face card-face-back">
+                <div class="mnemonic-header">
+                  <span>💡 Mẹo Ghi Nhớ</span>
+                </div>
+
+                <div class="mnemonic-icon" id="card-mnemonic-icon">🍎</div>
+
+                <p class="mnemonic-story" id="card-mnemonic-story">
+                  Giống quả Táo (Apple) có cuống lá và thân quả tròn xòe.
+                </p>
+
+                <div class="example-box">
+                  <div class="example-jp" id="card-example-jp">あめ (Ame)</div>
+                  <div class="example-meaning" id="card-example-meaning">Cơn mưa / Kẹo</div>
+                </div>
+
+                <span class="card-flip-tip">🔄 Nhấn để quay lại mặt trước</span>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Study Controls -->
+          <div class="study-controls">
+            <button class="btn-secondary" id="prev-card-btn">⬅️ Thẻ trước</button>
+            <span style="font-weight: 700; color: var(--text-muted);" id="card-counter">1 / 5</span>
+            <button class="btn-secondary" id="next-card-btn">Thẻ sau ➡️</button>
+          </div>
+
+          <!-- Quick Jump to Quiz -->
+          <button class="btn-primary-launch" id="start-quiz-now-btn">
+            🚀 Đã nhớ rồi! Kiểm tra ngay
+          </button>
+
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 2: DRAG & DROP QUIZ MODE
+           ==================================================================== -->
+      <section class="view-screen" id="quiz-view">
+        <div class="quiz-container">
+          
+          <!-- Quiz Status Header -->
+          <div class="quiz-header-bar">
+            <div class="quiz-stat-item">
+              <span>🎯 Điểm: <strong id="quiz-score-display">0</strong></span>
+            </div>
+
+            <div class="combo-badge" id="combo-badge-element">
+              🔥 Combo x<span id="combo-count-display">1</span>!
+            </div>
+
+            <div class="timer-box" id="timer-box-element">
+              ⏱️ <span id="timer-countdown">60</span>s
+            </div>
+
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn-secondary" id="quiz-mode-toggle-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                ⏱️ Thử thách
+              </button>
+
+              <button class="btn-secondary" id="quiz-hint-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+                💡 Gợi ý
+              </button>
+            </div>
+          </div>
+
+          <!-- Quiz Drag & Drop Game Board -->
+          <div class="quiz-game-board">
+            <!-- Source Cards Zone (Draggable items) -->
+            <div class="draggable-cards-zone" id="draggable-cards-container">
+              <!-- Dynamically generated drag cards -->
+            </div>
+
+            <!-- Target Slots Zone (Drop Targets with Romaji Labels) -->
+            <div class="drop-targets-grid" id="drop-targets-container">
+              <!-- Dynamically generated drop targets -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 3: FLASHCARD EXPLORER (FULL ALPHABET LIST)
+           ==================================================================== -->
+      <section class="view-screen" id="explorer-view">
+        <div class="explorer-container">
+          <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; color: var(--text-bright);">
+            🎴 Thẻ Tra Cứu Nhanh
+          </h2>
+          <div class="explorer-grid" id="explorer-grid-container">
+            <!-- Dynamically populated flashcards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 4: MISTAKES NOTEBOOK (SỔ TAY ÔN TẬP LỖI SAI)
+           ==================================================================== -->
+      <section class="view-screen" id="mistakes-view">
+        <div class="mistakes-container">
+          <div class="mistakes-header-bar">
+            <div>
+              <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-bright);">
+                📝 Sổ Tay Lỗi Sai (<span id="mistakes-header-count">0</span> từ)
+              </h2>
+              <p style="color: var(--text-muted); font-size: 0.9rem;">
+                Những ký tự hoặc từ vựng bạn làm sai trong Game sẽ tự động lưu lại ở đây để ôn tập lại.
+              </p>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button class="btn-primary-launch" id="practice-mistakes-btn" style="width: auto; padding: 0.6rem 1.4rem; font-size: 0.95rem;">
+                🎮 Ôn Tập Lỗi Sai
+              </button>
+              <button class="btn-secondary" id="clear-mistakes-btn" style="color: var(--color-error); border-color: rgba(239, 68, 68, 0.4);">
+                🗑️ Xóa lịch sử lỗi
+              </button>
+            </div>
+          </div>
+
+          <div class="mistakes-grid" id="mistakes-grid-container">
+            <!-- Dynamically populated mistake cards -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- RESULT & STATS MODAL -->
+    <div class="modal-overlay" id="result-modal">
+      <div class="modal-content">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;" id="modal-emoji">🎉</div>
+        <h2 class="modal-title" id="modal-title">Hoàn Thành Xuất Sắc!</h2>
+        <p style="color: var(--text-muted);" id="modal-subtitle">Bạn đã ghi nhớ nhóm chữ cái này!</p>
+
+        <div class="stats-grid-modal">
+          <div class="stat-box">
+            <span class="stat-value" id="modal-score">100</span>
+            <span class="stat-label">Tổng điểm</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-value" id="modal-accuracy">100%</span>
+            <span class="stat-label">Chính xác</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-value" id="modal-max-combo">x5</span>
+            <span class="stat-label">Max Combo</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-value" id="modal-rating">⭐⭐⭐</span>
+            <span class="stat-label">Đánh giá</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button class="btn-secondary" id="modal-restart-btn" style="flex: 1;">🔄 Chơi lại</button>
+          <button class="btn-primary-launch" id="modal-next-btn" style="flex: 1; margin: 0;">Tiếp tục ➡️</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Files -->
+  <script src="data.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

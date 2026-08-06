@@ -1,0 +1,1086 @@
+/* ==========================================================================
+   JAPANESE ALPHABET LEARNER & QUIZ - SAKURA & DARK NEON GLASSMORPHISM
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. COLOR PALETTE & CSS VARIABLES
+   -------------------------------------------------------------------------- */
+:root {
+  /* Fonts */
+  --font-main: 'Be Vietnam Pro', 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-jp: 'Noto Sans JP', 'Hiragana Sans', sans-serif;
+
+  /* Theme Defaults: Sakura Light Mode */
+  --bg-gradient: linear-gradient(135deg, #fff0f5 0%, #ffe4e8 50%, #f7d6e0 100%);
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-card-hover: rgba(255, 255, 255, 0.9);
+  --bg-dropzone: rgba(255, 255, 255, 0.5);
+  --text-main: #2d3748;
+  --text-muted: #718096;
+  --text-bright: #1a202c;
+
+  /* Accents */
+  --accent-sakura: #ff6b8b;
+  --accent-sakura-glow: rgba(255, 107, 139, 0.4);
+  --accent-primary: #ff477e;
+  --accent-secondary: #7209b7;
+  --accent-cyan: #00b4d8;
+  --accent-gold: #ffb703;
+  --color-success: #10b981;
+  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-error: #ef4444;
+  --color-error-bg: rgba(239, 68, 68, 0.15);
+
+  /* Glassmorphism & Borders */
+  --glass-border: 1px solid rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 8px 32px 0 rgba(255, 182, 193, 0.25);
+  --card-radius: 18px;
+  --btn-radius: 12px;
+
+  /* Animations */
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Neon Mode Override */
+[data-theme="dark"] {
+  --bg-gradient: linear-gradient(135deg, #0b0d17 0%, #121629 50%, #1a1b35 100%);
+  --bg-card: rgba(26, 32, 53, 0.65);
+  --bg-card-hover: rgba(35, 43, 70, 0.85);
+  --bg-dropzone: rgba(18, 22, 40, 0.6);
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-bright: #ffffff;
+
+  --accent-sakura: #ff4d8d;
+  --accent-sakura-glow: rgba(255, 77, 141, 0.5);
+  --accent-primary: #ff2a75;
+  --accent-secondary: #9d4edd;
+  --accent-cyan: #00f2fe;
+  --accent-gold: #ffc300;
+
+  --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   2. RESET & GLOBAL STYLES
+   -------------------------------------------------------------------------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  position: relative;
+  transition: background var(--transition-normal);
+}
+
+/* Background Canvas for Petals & Confetti */
+#sakura-canvas, #confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#confetti-canvas {
+  z-index: 999;
+}
+
+.app-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   3. HEADER & NAVIGATION
+   -------------------------------------------------------------------------- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.5rem;
+  margin-top: 1rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.logo-icon {
+  font-family: var(--font-jp);
+  font-size: 2rem;
+  background: linear-gradient(135deg, var(--accent-sakura), var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px var(--accent-sakura-glow));
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: var(--glass-border);
+  color: var(--text-main);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background: var(--accent-sakura);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--accent-sakura-glow);
+}
+
+.stats-summary-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(255, 183, 3, 0.15);
+  border: 1px solid rgba(255, 183, 3, 0.3);
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent-gold);
+}
+
+/* --------------------------------------------------------------------------
+   4. NAVIGATION TABS (Hiragana vs Katakana & Modes)
+   -------------------------------------------------------------------------- */
+.nav-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.2rem 0;
+}
+
+.alphabet-switch-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  padding: 6px;
+  border-radius: 18px;
+  border: var(--glass-border);
+  width: fit-content;
+  margin: 0 auto;
+  gap: 4px;
+}
+
+.alphabet-btn {
+  padding: 0.65rem 1.8rem;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  opacity: 0.7;
+}
+
+.alphabet-btn:hover {
+  opacity: 1;
+  color: var(--accent-sakura);
+}
+
+.alphabet-btn.active {
+  background: linear-gradient(135deg, var(--accent-sakura), var(--accent-primary));
+  color: #ffffff !important;
+  opacity: 1;
+  box-shadow: 0 4px 14px var(--accent-sakura-glow);
+}
+
+.mode-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.mode-tab {
+  padding: 0.6rem 1.4rem;
+  border-radius: 20px;
+  border: var(--glass-border);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.mode-tab:hover {
+  border-color: var(--accent-sakura);
+  color: var(--accent-sakura);
+  transform: translateY(-2px);
+}
+
+.mode-tab.active {
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+  color: #ffffff !important;
+  border-color: transparent;
+  box-shadow: 0 4px 15px var(--accent-sakura-glow);
+  transform: translateY(-1px);
+}
+
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  margin-left: 0.35rem;
+  min-width: 20px;
+  height: 20px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.mode-tab.active .tab-badge {
+  background: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   5. VIEW SCREENS (SPA DISPLAY)
+   -------------------------------------------------------------------------- */
+.view-screen {
+  display: none;
+  animation: fadeIn 0.4s ease-out forwards;
+  flex: 1;
+  padding-bottom: 2rem;
+}
+
+.view-screen.active {
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --------------------------------------------------------------------------
+   6. STEP 1: SMART STUDY MODE (3D FLIP CARD)
+   -------------------------------------------------------------------------- */
+.study-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.group-selector-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.select-dropdown {
+  width: 100%;
+  padding: 0.85rem 3rem 0.85rem 1.4rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 107, 139, 0.35);
+  background-color: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--text-bright);
+  font-family: var(--font-main);
+  font-size: 1.05rem;
+  font-weight: 700;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23ff477e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+  background-repeat: no-repeat;
+  background-position: right 1.2rem center;
+  background-size: 1.2rem;
+  transition: var(--transition-fast);
+}
+
+.select-dropdown:hover, .select-dropdown:focus {
+  border-color: var(--accent-sakura);
+  box-shadow: 0 8px 25px var(--accent-sakura-glow);
+  transform: translateY(-1px);
+}
+
+.select-dropdown option {
+  background: #ffffff;
+  color: #1a202c;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+[data-theme="dark"] .select-dropdown option {
+  background: #1a2035;
+  color: #ffffff;
+}
+
+/* 3D Flip Card Container */
+.card-flip-viewport {
+  perspective: 1000px;
+  width: 100%;
+  max-width: 380px;
+  height: 420px;
+  cursor: pointer;
+}
+
+.card-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card-flip-viewport.flipped .card-flip-inner {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 24px;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem;
+}
+
+.card-face-front {
+  border-top: 4px solid var(--accent-sakura);
+}
+
+.card-face-back {
+  transform: rotateY(180deg);
+  border-top: 4px solid var(--accent-cyan);
+  background: var(--bg-card-hover);
+}
+
+.card-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.3rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 107, 139, 0.15);
+  color: var(--accent-sakura);
+}
+
+.japanese-char-display {
+  font-family: var(--font-jp);
+  font-size: 5.5rem;
+  font-weight: 800;
+  color: var(--text-bright);
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin: 0.3rem 0;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  word-break: break-word;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.card-romaji-display {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--accent-sakura);
+}
+
+.sound-speak-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 20px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent-sakura), var(--accent-primary));
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  box-shadow: 0 4px 12px var(--accent-sakura-glow);
+}
+
+.sound-speak-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Back Face Mnemonic Details */
+.mnemonic-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent-cyan);
+}
+
+.mnemonic-icon {
+  font-size: 3.5rem;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+  animation: bounceSlow 3s infinite ease-in-out;
+}
+
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.mnemonic-story {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  margin: 0.5rem 0;
+}
+
+.example-box {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+[data-theme="dark"] .example-box {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.example-jp {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-bright);
+}
+
+.example-meaning {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.card-flip-tip {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Study Controls (Prev, Flip, Next, Launch Quiz) */
+.study-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 380px;
+  justify-content: space-between;
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.4rem;
+  border-radius: var(--btn-radius);
+  border: var(--glass-border);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.btn-primary-launch {
+  width: 100%;
+  max-width: 380px;
+  padding: 1rem;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-family: var(--font-main);
+  font-weight: 800;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  transition: var(--transition-fast);
+}
+
+.btn-primary-launch:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   7. STEP 2: DRAG & DROP QUIZ (POINTER EVENTS & GAMEPLAY)
+   -------------------------------------------------------------------------- */
+.quiz-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: var(--glass-border);
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.quiz-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.combo-badge {
+  background: linear-gradient(135deg, #ff9f1c, #ff4000);
+  color: #ffffff;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  animation: comboPulse 0.6s ease infinite alternate;
+  display: none;
+}
+
+.combo-badge.active {
+  display: inline-block;
+}
+
+@keyframes comboPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+
+.timer-box {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent-sakura);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.quiz-game-board {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* Draggable Source Cards Area */
+.draggable-cards-zone {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 110px;
+  padding: 1.2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.drag-card {
+  width: 80px;
+  height: 90px;
+  background: var(--bg-card-hover);
+  border: var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none; /* Critical for Pointer Events on mobile touch screens */
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.drag-card:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 10px 20px var(--accent-sakura-glow);
+  border-color: var(--accent-sakura);
+}
+
+.drag-card:active {
+  cursor: grabbing;
+}
+
+.drag-card.dragging {
+  opacity: 0.4;
+}
+
+.drag-card .char-text {
+  font-family: var(--font-jp);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+/* Floating Ghost Element during Pointer Drag */
+.ghost-drag {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 85px;
+  height: 95px;
+  background: var(--bg-card-hover);
+  border: 2px solid var(--accent-sakura);
+  border-radius: 16px;
+  box-shadow: 0 15px 30px var(--accent-sakura-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-jp);
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--accent-sakura);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%) scale(1.1);
+  backdrop-filter: blur(8px);
+}
+
+/* Drop Targets Area */
+.drop-targets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 1.2rem;
+  width: 100%;
+}
+
+.drop-target {
+  height: 120px;
+  background: var(--bg-dropzone);
+  backdrop-filter: blur(10px);
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  position: relative;
+  transition: var(--transition-fast);
+}
+
+.drop-target.hover-over {
+  border-color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.15);
+  transform: scale(1.04);
+}
+
+.drop-target-label {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-sakura);
+}
+
+.drop-target-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Success & Error Drop States */
+.drop-target.matched {
+  border-style: solid;
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+}
+
+.drop-target.matched .matched-char {
+  font-family: var(--font-jp);
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--color-success);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.drop-target.shake {
+  animation: shakeError 0.4s ease;
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+/* --------------------------------------------------------------------------
+   8. FLASHCARD EXPLORER VIEW (FULL ALPHABET GRID)
+   -------------------------------------------------------------------------- */
+.explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.explorer-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  border: var(--glass-border);
+  border-radius: 16px;
+  padding: 1rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.explorer-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-sakura);
+  box-shadow: 0 8px 20px var(--accent-sakura-glow);
+}
+
+.explorer-char {
+  font-family: var(--font-jp);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.explorer-romaji {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-sakura);
+}
+
+/* --------------------------------------------------------------------------
+   9. MODAL & STATS DASHBOARD
+   -------------------------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--bg-card-hover);
+  backdrop-filter: blur(24px);
+  border: var(--glass-border);
+  border-radius: 28px;
+  padding: 2.2rem;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+  animation: modalPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-bright);
+  margin-bottom: 0.5rem;
+}
+
+.stats-grid-modal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.stat-box {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--accent-sakura);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   10. RESPONSIVE DESIGN (MOBILE & TABLET)
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0.8rem 1rem;
+  }
+  
+  .brand-logo {
+    font-size: 1.2rem;
+  }
+
+  .logo-icon {
+    font-size: 1.6rem;
+  }
+
+  .card-flip-viewport {
+    height: 380px;
+  }
+
+  .japanese-char-display {
+    font-size: 5.5rem;
+  }
+
+  .drop-targets-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .drop-target {
+    height: 100px;
+  }
+
+  .drag-card {
+    width: 68px;
+    height: 80px;
+  }
+
+  .drag-card .char-text {
+    font-size: 2rem;
+  }
+
+  .quiz-header-bar {
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. MISTAKES NOTEBOOK VIEW (SỔ TAY ÔN TẬP LỖI SAI)
+   -------------------------------------------------------------------------- */
+.mistakes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.mistakes-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 1.6rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: var(--glass-border);
+  flex-wrap: wrap;
+}
+
+.mistakes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.2rem;
+  width: 100%;
+}
+
+.mistake-card {
+  background: var(--bg-card-hover);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 20px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.08);
+  transition: var(--transition-fast);
+}
+
+.mistake-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.2);
+  border-color: var(--color-error);
+}
+
+.mistake-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.mistake-char {
+  font-family: var(--font-jp);
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: var(--text-bright);
+  line-height: 1;
+}
+
+.mistake-count-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-error);
+  padding: 0.3rem 0.7rem;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.mistake-romaji {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--accent-sakura);
+}
+
+.mistake-mnemonic {
+  font-size: 0.88rem;
+  color: var(--text-main);
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+.empty-mistakes-box {
+  width: 100%;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  border: var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
