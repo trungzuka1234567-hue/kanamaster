@@ -148,11 +148,30 @@
       </section>
 
       <!-- ====================================================================
-           VIEW 2: DRAG & DROP QUIZ MODE
+           VIEW 2: ENHANCED QUIZ MODE (Drag & Drop + MCQ + Typing)
            ==================================================================== -->
       <section class="view-screen" id="quiz-view">
         <div class="quiz-container">
           
+          <!-- Level Selector -->
+          <div class="quiz-level-selector" id="quiz-level-selector">
+            <button class="level-btn active" data-level="1">
+              <span class="level-icon">🌱</span>
+              <span class="level-name">Dễ</span>
+              <span class="level-desc">Kéo thả + Trắc nghiệm, ít nhiễu</span>
+            </button>
+            <button class="level-btn" data-level="2">
+              <span class="level-icon">🌿</span>
+              <span class="level-name">Trung bình</span>
+              <span class="level-desc">3 dạng bài, nhiễu vừa</span>
+            </button>
+            <button class="level-btn" data-level="3">
+              <span class="level-icon">🔥</span>
+              <span class="level-name">Khó</span>
+              <span class="level-desc">3 dạng, nhiều nhiễu, không gợi ý</span>
+            </button>
+          </div>
+
           <!-- Quiz Status Header -->
           <div class="quiz-header-bar">
             <div class="quiz-stat-item">
@@ -167,28 +186,75 @@
               ⏱️ <span id="timer-countdown">60</span>s
             </div>
 
-            <div style="display: flex; gap: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
               <button class="btn-secondary" id="quiz-mode-toggle-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
                 ⏱️ Thử thách
               </button>
 
               <button class="btn-secondary" id="quiz-hint-btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
-                💡 Gợi ý
+                💡 Gợi ý <span id="hints-remaining-count"></span>
               </button>
             </div>
           </div>
 
-          <!-- Quiz Drag & Drop Game Board -->
-          <div class="quiz-game-board">
-            <!-- Source Cards Zone (Draggable items) -->
-            <div class="draggable-cards-zone" id="draggable-cards-container">
-              <!-- Dynamically generated drag cards -->
+          <!-- Quiz Progress Bar -->
+          <div class="quiz-progress-wrapper">
+            <div class="quiz-progress-info">
+              <span id="quiz-question-counter">Câu 1 / 10</span>
+              <span id="quiz-question-type-badge" class="question-type-badge">Kéo Thả</span>
             </div>
+            <div class="quiz-progress-track">
+              <div class="quiz-progress-fill" id="quiz-progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
 
-            <!-- Target Slots Zone (Drop Targets with Romaji Labels) -->
-            <div class="drop-targets-grid" id="drop-targets-container">
-              <!-- Dynamically generated drop targets -->
+          <!-- ============ QUIZ BOARD: DRAG & DROP ============ -->
+          <div class="quiz-board quiz-drag-board" id="quiz-drag-board">
+            <div class="quiz-game-board">
+              <div class="draggable-cards-zone" id="draggable-cards-container">
+              </div>
+              <div class="drop-targets-grid" id="drop-targets-container">
+              </div>
             </div>
+          </div>
+
+          <!-- ============ QUIZ BOARD: MULTIPLE CHOICE (MCQ) ============ -->
+          <div class="quiz-board quiz-mcq-board" id="quiz-mcq-board" style="display:none;">
+            <div class="mcq-question-card">
+              <div class="mcq-direction-badge" id="mcq-direction-badge">Ký tự → Romaji</div>
+              <div class="mcq-prompt" id="mcq-prompt">あ</div>
+              <div class="mcq-speak-btn-wrap">
+                <button class="sound-speak-btn" id="mcq-speak-btn" style="font-size: 0.85rem; padding: 0.4rem 1rem;">
+                  🔊 Nghe
+                </button>
+              </div>
+            </div>
+            <div class="mcq-options-grid" id="mcq-options-grid">
+              <button class="mcq-option" data-index="0">a</button>
+              <button class="mcq-option" data-index="1">ka</button>
+              <button class="mcq-option" data-index="2">sa</button>
+              <button class="mcq-option" data-index="3">ta</button>
+            </div>
+          </div>
+
+          <!-- ============ QUIZ BOARD: TYPING ============ -->
+          <div class="quiz-board quiz-typing-board" id="quiz-typing-board" style="display:none;">
+            <div class="typing-question-card">
+              <div class="typing-direction-badge" id="typing-direction-badge">Ký tự → Romaji</div>
+              <div class="typing-prompt" id="typing-prompt">か</div>
+              <div class="mcq-speak-btn-wrap">
+                <button class="sound-speak-btn" id="typing-speak-btn" style="font-size: 0.85rem; padding: 0.4rem 1rem;">
+                  🔊 Nghe
+                </button>
+              </div>
+            </div>
+            <div class="typing-input-area">
+              <input type="text" class="typing-answer-input" id="typing-answer-input" placeholder="Gõ câu trả lời..." autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <button class="btn-primary-launch typing-submit-btn" id="typing-submit-btn" style="max-width: 200px; margin: 0;">
+                ✅ Kiểm tra
+              </button>
+            </div>
+            <div class="typing-feedback" id="typing-feedback"></div>
           </div>
 
         </div>

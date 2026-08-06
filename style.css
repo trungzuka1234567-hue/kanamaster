@@ -616,8 +616,97 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   7. STEP 2: DRAG & DROP QUIZ (POINTER EVENTS & GAMEPLAY)
+   7. STEP 2: ENHANCED QUIZ (DRAG & DROP + MCQ + TYPING)
    -------------------------------------------------------------------------- */
+
+/* Level Selector */
+.quiz-level-selector {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.level-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 0.5rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.level-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 16px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.level-btn[data-level="1"]::before { background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.1)); }
+.level-btn[data-level="2"]::before { background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1)); }
+.level-btn[data-level="3"]::before { background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1)); }
+
+.level-btn:hover::before, .level-btn.active::before { opacity: 1; }
+
+.level-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.level-btn.active {
+  transform: translateY(-2px);
+}
+
+.level-btn[data-level="1"].active {
+  border-color: #10b981;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+}
+
+.level-btn[data-level="2"].active {
+  border-color: #f59e0b;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+}
+
+.level-btn[data-level="3"].active {
+  border-color: #ef4444;
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
+
+.level-icon {
+  font-size: 1.8rem;
+}
+
+.level-name {
+  font-family: var(--font-main);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text-bright);
+}
+
+.level-desc {
+  font-family: var(--font-main);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Quiz Header Bar */
 .quiz-header-bar {
   display: flex;
   align-items: center;
@@ -628,7 +717,7 @@ body {
   backdrop-filter: blur(12px);
   border-radius: 20px;
   border: var(--glass-border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -670,6 +759,55 @@ body {
   font-weight: 900;
 }
 
+/* Progress Bar */
+.quiz-progress-wrapper {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.quiz-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.question-type-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-primary));
+  color: #ffffff;
+}
+
+.quiz-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quiz-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-sakura), var(--accent-cyan));
+  border-radius: 8px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Quiz Boards */
+.quiz-board {
+  width: 100%;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
 .quiz-game-board {
   display: flex;
   flex-direction: column;
@@ -703,7 +841,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: grab;
-  touch-action: none; /* Critical for Pointer Events on mobile touch screens */
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -729,6 +867,11 @@ body {
   font-size: 2.5rem;
   font-weight: 700;
   color: var(--text-bright);
+}
+
+.drag-card.decoy-card {
+  border-color: rgba(255, 183, 3, 0.3);
+  background: rgba(255, 183, 3, 0.05);
 }
 
 /* Floating Ghost Element during Pointer Drag */
@@ -828,6 +971,244 @@ body {
   20%, 60% { transform: translateX(-8px); }
   40%, 80% { transform: translateX(8px); }
 }
+
+/* --------------------------------------------------------------------------
+   7b. MULTIPLE CHOICE (MCQ) QUIZ BOARD
+   -------------------------------------------------------------------------- */
+.mcq-question-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2.5rem 2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  border: var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.mcq-question-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent-sakura), var(--accent-cyan), var(--accent-secondary));
+}
+
+.mcq-direction-badge, .typing-direction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(0, 242, 254, 0.12);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+}
+
+.mcq-prompt, .typing-prompt {
+  font-family: var(--font-jp);
+  font-size: 5rem;
+  font-weight: 900;
+  color: var(--text-bright);
+  line-height: 1.1;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  animation: pulseGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulseGlow {
+  from { filter: drop-shadow(0 0 0px transparent); }
+  to { filter: drop-shadow(0 0 12px var(--accent-sakura-glow)); }
+}
+
+.mcq-speak-btn-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.mcq-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.mcq-option {
+  padding: 1.2rem 1rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  color: var(--text-bright);
+  font-family: var(--font-main);
+  font-weight: 800;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mcq-option::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, var(--accent-sakura), var(--accent-primary));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  border-radius: 16px;
+}
+
+.mcq-option:hover {
+  transform: translateY(-3px) scale(1.02);
+  border-color: var(--accent-sakura);
+  box-shadow: 0 8px 25px var(--accent-sakura-glow);
+}
+
+.mcq-option:hover::before {
+  opacity: 0.08;
+}
+
+.mcq-option.mcq-correct {
+  border-color: var(--color-success) !important;
+  background: var(--color-success-bg) !important;
+  color: var(--color-success) !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+  animation: correctPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+}
+
+.mcq-option.mcq-wrong {
+  border-color: var(--color-error) !important;
+  background: var(--color-error-bg) !important;
+  color: var(--color-error) !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  animation: shakeError 0.4s ease;
+  pointer-events: none;
+}
+
+.mcq-option.mcq-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+@keyframes correctPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   7c. TYPING QUIZ BOARD
+   -------------------------------------------------------------------------- */
+.typing-question-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2.5rem 2rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  border: var(--glass-border);
+  border-radius: 24px;
+  box-shadow: var(--glass-shadow);
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.typing-question-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent-gold), var(--accent-sakura), var(--accent-secondary));
+}
+
+.typing-input-area {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+
+.typing-answer-input {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  color: var(--text-bright);
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: 1.3rem;
+  outline: none;
+  transition: all 0.25s ease;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.typing-answer-input:focus {
+  border-color: var(--accent-sakura);
+  box-shadow: 0 0 20px var(--accent-sakura-glow);
+}
+
+.typing-answer-input.typing-correct {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.4) !important;
+  background: var(--color-success-bg) !important;
+  color: var(--color-success) !important;
+}
+
+.typing-answer-input.typing-wrong {
+  border-color: var(--color-error) !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3) !important;
+  background: var(--color-error-bg) !important;
+  animation: shakeError 0.4s ease;
+}
+
+.typing-submit-btn {
+  white-space: nowrap;
+}
+
+.typing-feedback {
+  text-align: center;
+  font-weight: 800;
+  font-size: 1rem;
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.typing-feedback.feedback-correct {
+  color: var(--color-success);
+}
+
+.typing-feedback.feedback-wrong {
+  color: var(--color-error);
+}
+
 
 /* --------------------------------------------------------------------------
    8. FLASHCARD EXPLORER VIEW (FULL ALPHABET GRID)
@@ -993,6 +1374,60 @@ body {
   .quiz-header-bar {
     padding: 0.75rem 1rem;
     font-size: 0.95rem;
+  }
+
+  /* Level selector: compact on mobile */
+  .quiz-level-selector {
+    gap: 0.4rem;
+  }
+
+  .level-btn {
+    padding: 0.7rem 0.3rem;
+  }
+
+  .level-icon {
+    font-size: 1.3rem;
+  }
+
+  .level-name {
+    font-size: 0.8rem;
+  }
+
+  .level-desc {
+    font-size: 0.62rem;
+  }
+
+  /* MCQ mobile */
+  .mcq-prompt, .typing-prompt {
+    font-size: 3.5rem;
+  }
+
+  .mcq-options-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+
+  .mcq-option {
+    padding: 0.9rem 0.7rem;
+    font-size: 1rem;
+  }
+
+  .mcq-question-card, .typing-question-card {
+    padding: 1.5rem 1rem;
+  }
+
+  /* Typing mobile */
+  .typing-input-area {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .typing-answer-input {
+    font-size: 1.1rem;
+  }
+
+  .typing-submit-btn {
+    max-width: 100% !important;
   }
 }
 

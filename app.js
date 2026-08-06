@@ -1,8 +1,10 @@
 /**
  * Main Application Logic for KanaMaster SPA
  * Supports Hiragana, Katakana, Kanji, and Romaji learning modes.
- * Features: 3D Flip Card Study Mode, Pointer Events Drag & Drop Quiz,
- * Mistakes Notebook (Sổ Tay Lỗi Sai), Sound Effects, Timer Countdown, Combo System, LocalStorage Persistence & Sakura/Confetti Canvases.
+ * Features: 3D Flip Card Study Mode, Enhanced Multi-Type Quiz (Drag & Drop, MCQ, Typing),
+ * 3 Difficulty Levels, Decoy System, Bidirectional Testing,
+ * Mistakes Notebook (Sổ Tay Lỗi Sai), Sound Effects, Timer Countdown, Combo System,
+ * LocalStorage Persistence & Sakura/Confetti Canvases.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Quiz State
     quizMode: 'challenge', // 'practice' | 'challenge'
     isMistakesQuiz: false,
+    quizLevel: 1, // 1 = Easy, 2 = Medium, 3 = Hard
     quizItems: [],
     matchedCount: 0,
     score: 0,
@@ -27,6 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
     correctAttempts: 0,
     timeLeft: 60,
     timerId: null,
+
+    // Enhanced Quiz
+    questions: [],          // Array of question objects
+    currentQuestionIndex: 0,
+    totalQuestions: 10,
+    hintsRemaining: 3,
+    currentDragBatchDone: false, // Track if current drag batch is complete
 
     // Persistence
     streakDays: 1,
@@ -74,8 +84,36 @@ document.addEventListener('DOMContentLoaded', () => {
     timerCountdown: document.getElementById('timer-countdown'),
     quizModeToggleBtn: document.getElementById('quiz-mode-toggle-btn'),
     quizHintBtn: document.getElementById('quiz-hint-btn'),
+    hintsRemainingCount: document.getElementById('hints-remaining-count'),
     draggableContainer: document.getElementById('draggable-cards-container'),
     dropTargetsContainer: document.getElementById('drop-targets-container'),
+
+    // Level Selector
+    levelBtns: document.querySelectorAll('.level-btn'),
+
+    // Progress Bar
+    questionCounter: document.getElementById('quiz-question-counter'),
+    questionTypeBadge: document.getElementById('quiz-question-type-badge'),
+    progressFill: document.getElementById('quiz-progress-fill'),
+
+    // Quiz Boards
+    dragBoard: document.getElementById('quiz-drag-board'),
+    mcqBoard: document.getElementById('quiz-mcq-board'),
+    typingBoard: document.getElementById('quiz-typing-board'),
+
+    // MCQ Elements
+    mcqDirectionBadge: document.getElementById('mcq-direction-badge'),
+    mcqPrompt: document.getElementById('mcq-prompt'),
+    mcqSpeakBtn: document.getElementById('mcq-speak-btn'),
+    mcqOptionsGrid: document.getElementById('mcq-options-grid'),
+
+    // Typing Elements
+    typingDirectionBadge: document.getElementById('typing-direction-badge'),
+    typingPrompt: document.getElementById('typing-prompt'),
+    typingSpeakBtn: document.getElementById('typing-speak-btn'),
+    typingInput: document.getElementById('typing-answer-input'),
+    typingSubmitBtn: document.getElementById('typing-submit-btn'),
+    typingFeedback: document.getElementById('typing-feedback'),
 
     // Explorer Mode
     explorerGrid: document.getElementById('explorer-grid-container'),
@@ -158,9 +196,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // Load saved level
+    const savedLevel = localStorage.getItem('kana_quiz_level');
+    if (savedLevel) state.quizLevel = parseInt(savedLevel, 10) || 1;
+
     elements.streakCount.textContent = state.streakDays;
     elements.totalScoreDisplay.textContent = state.totalScore;
     updateMistakesBadgeCount();
+    updateLevelUI();
   }
 
   function setupThemeAndAudio() {
@@ -184,6 +227,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentGroup = getCurrentGroup();
     const foundItem = currentGroup ? currentGroup.items.find(i => i.char === char) : null;
 
+    // Also search across all groups if not found in current
+    let searchItem = foundItem;
+    if (!searchItem) {
+      const alphabetData = JAPANESE_DATA[state.alphabet];
+      if (alphabetData && alphabetData.groups) {
+        for (const g of alphabetData.groups) {
+          const found = g.items.find(i => i.char === char);
+          if (found) { searchItem = found; break; }
+        }
+      }
+    }
+
     const existingIndex = state.mistakesList.findIndex(m => m.char === char);
     if (existingIndex >= 0) {
       state.mistakesList[existingIndex].errorCount++;
@@ -192,11 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
         alphabet: state.alphabet,
         char: char,
         romaji: romaji,
-        example: foundItem ? foundItem.example : '',
-        meaning: foundItem ? foundItem.meaning : '',
-        mnemonicIcon: foundItem ? foundItem.mnemonicIcon : '💡',
-        mnemonicText: foundItem ? (foundItem.mnemonicText || foundItem.hint) : '',
-        hint: foundItem ? foundItem.hint : '',
+        example: searchItem ? searchItem.example : '',
+        meaning: searchItem ? searchItem.meaning : '',
+        mnemonicIcon: searchItem ? searchItem.mnemonicIcon : '💡',
+        mnemonicText: searchItem ? (searchItem.mnemonicText || searchItem.hint) : '',
+        hint: searchItem ? searchItem.hint : '',
         errorCount: 1
       });
     }
@@ -313,44 +368,176 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ------------------------------------------------------------------------
-  // 6. STEP 2: DRAG & DROP QUIZ SYSTEM (POINTER EVENTS)
+  // 6. ENHANCED QUIZ SYSTEM
   // ------------------------------------------------------------------------
+
+  // -- 6a. HELPER: Get all items from current alphabet --
+  function getAllAlphabetItems() {
+    const alphabetData = JAPANESE_DATA[state.alphabet];
+    if (!alphabetData || !alphabetData.groups) return [];
+    const allItems = [];
+    alphabetData.groups.forEach(g => {
+      g.items.forEach(item => {
+        allItems.push({ ...item });
+      });
+    });
+    return allItems;
+  }
+
+  // -- 6b. HELPER: Get decoy items (from same alphabet, excluding given items) --
+  function getDecoyItems(excludeItems, count) {
+    const allItems = getAllAlphabetItems();
+    const excludeChars = new Set(excludeItems.map(i => i.char));
+    const pool = allItems.filter(item => !excludeChars.has(item.char));
+    return shuffleArray(pool).slice(0, count);
+  }
+
+  // -- 6c. LEVEL CONFIG --
+  function getLevelConfig() {
+    const configs = {
+      1: { // Easy
+        questionTypes: ['drag', 'mcq'],
+        decoyCount: 1,
+        hintsMax: 5,
+        timeSeconds: 90,
+        totalQuestions: 10,
+        dragBatchSize: 5
+      },
+      2: { // Medium
+        questionTypes: ['drag', 'mcq', 'typing'],
+        decoyCount: 2,
+        hintsMax: 3,
+        timeSeconds: 60,
+        totalQuestions: 10,
+        dragBatchSize: 5
+      },
+      3: { // Hard
+        questionTypes: ['drag', 'mcq', 'typing'],
+        decoyCount: 3,
+        hintsMax: 0,
+        timeSeconds: 45,
+        totalQuestions: 12,
+        dragBatchSize: 5
+      }
+    };
+    return configs[state.quizLevel] || configs[1];
+  }
+
+  // -- 6d. UPDATE LEVEL UI --
+  function updateLevelUI() {
+    elements.levelBtns.forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.level) === state.quizLevel);
+    });
+  }
+
+  // -- 6e. GENERATE QUIZ QUESTIONS --
+  function generateQuizQuestions() {
+    const config = getLevelConfig();
+    const allItems = getAllAlphabetItems();
+    
+    if (allItems.length === 0) return [];
+
+    // Pick random items from the pool, shuffled
+    const shuffled = shuffleArray([...allItems]);
+    const selectedItems = shuffled.slice(0, Math.min(config.totalQuestions * 2, shuffled.length));
+    
+    const questions = [];
+    let itemIndex = 0;
+
+    // We need to generate questions. For drag type, we batch 5 items per question.
+    // For MCQ/typing, each item is a single question.
+    let remaining = config.totalQuestions;
+
+    while (remaining > 0 && itemIndex < selectedItems.length) {
+      const typePool = [...config.questionTypes];
+      const questionType = typePool[Math.floor(Math.random() * typePool.length)];
+      
+      // Random direction: 'char-to-romaji' or 'romaji-to-char'
+      const direction = Math.random() < 0.5 ? 'char-to-romaji' : 'romaji-to-char';
+
+      if (questionType === 'drag') {
+        // Batch: take up to dragBatchSize items
+        const batchItems = [];
+        for (let i = 0; i < config.dragBatchSize && itemIndex < selectedItems.length; i++) {
+          batchItems.push(selectedItems[itemIndex++]);
+        }
+
+        if (batchItems.length > 0) {
+          // Get decoys
+          const decoys = getDecoyItems(batchItems, config.decoyCount);
+          
+          questions.push({
+            type: 'drag',
+            direction: direction,
+            items: batchItems,
+            decoys: decoys
+          });
+          remaining--;
+        }
+      } else if (questionType === 'mcq') {
+        const item = selectedItems[itemIndex++];
+        
+        // Generate 3 wrong options
+        const wrongItems = getDecoyItems([item], 3);
+        const options = shuffleArray([
+          { value: direction === 'char-to-romaji' ? item.romaji : item.char, correct: true, char: item.char, romaji: item.romaji },
+          ...wrongItems.map(w => ({
+            value: direction === 'char-to-romaji' ? w.romaji : w.char,
+            correct: false,
+            char: w.char,
+            romaji: w.romaji
+          }))
+        ]);
+
+        questions.push({
+          type: 'mcq',
+          direction: direction,
+          item: item,
+          options: options
+        });
+        remaining--;
+      } else if (questionType === 'typing') {
+        const item = selectedItems[itemIndex++];
+        
+        questions.push({
+          type: 'typing',
+          direction: direction,
+          item: item
+        });
+        remaining--;
+      }
+    }
+
+    return questions;
+  }
+
+  // -- 6f. START NEW QUIZ --
   function startNewQuiz() {
     state.isMistakesQuiz = false;
-    const group = getCurrentGroup();
-    state.quizItems = [...group.items];
-    initQuizSession();
-  }
-
-  function startMistakesQuiz() {
-    if (state.mistakesList.length === 0) {
-      alert("Bạn chưa có từ nào bị sai trong sổ tay!");
-      return;
-    }
-    state.isMistakesQuiz = true;
-    state.quizItems = [...state.mistakesList];
-    switchView('quiz-view');
-    initQuizSession();
-  }
-
-  function initQuizSession() {
+    
+    const config = getLevelConfig();
+    state.totalQuestions = config.totalQuestions;
+    state.hintsRemaining = config.hintsMax;
+    state.timeLeft = config.timeSeconds;
+    
+    state.questions = generateQuizQuestions();
+    state.currentQuestionIndex = 0;
     state.matchedCount = 0;
     state.score = 0;
     state.combo = 0;
     state.maxCombo = 0;
     state.totalAttempts = 0;
     state.correctAttempts = 0;
-    state.timeLeft = 60;
+    state.currentDragBatchDone = false;
 
     elements.quizScoreDisplay.textContent = '0';
     updateComboUI();
+    updateHintsUI();
+    updateProgressUI();
 
-    // Shuffle cards for drag sources
-    const shuffledDragItems = shuffleArray([...state.quizItems]);
-    // Shuffle items for drop targets
-    const shuffledTargetItems = shuffleArray([...state.quizItems]);
-
-    renderQuizBoard(shuffledDragItems, shuffledTargetItems);
+    if (state.questions.length > 0) {
+      renderCurrentQuestion();
+    }
 
     if (state.quizMode === 'challenge') {
       elements.timerBox.style.display = 'flex';
@@ -361,21 +548,192 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderQuizBoard(dragItems, targetItems) {
-    // 1. Draggable cards
-    elements.draggableContainer.innerHTML = dragItems.map(item => `
-      <div class="drag-card" data-char="${item.char}" data-romaji="${item.romaji}">
-        <span class="char-text">${item.char}</span>
-      </div>
-    `).join('');
+  // -- 6g. START MISTAKES QUIZ --
+  function startMistakesQuiz() {
+    if (state.mistakesList.length === 0) {
+      alert("Bạn chưa có từ nào bị sai trong sổ tay!");
+      return;
+    }
+    state.isMistakesQuiz = true;
+    
+    // Build questions from mistakes
+    const config = getLevelConfig();
+    const mistakeItems = shuffleArray([...state.mistakesList]);
+    
+    state.questions = [];
+    let remaining = Math.min(config.totalQuestions, mistakeItems.length);
+    let itemIndex = 0;
+    
+    while (remaining > 0 && itemIndex < mistakeItems.length) {
+      const typePool = [...config.questionTypes];
+      const questionType = typePool[Math.floor(Math.random() * typePool.length)];
+      const direction = Math.random() < 0.5 ? 'char-to-romaji' : 'romaji-to-char';
+      const item = mistakeItems[itemIndex++];
 
-    // 2. Drop targets
-    elements.dropTargetsContainer.innerHTML = targetItems.map(item => `
-      <div class="drop-target" data-romaji="${item.romaji}">
-        <span class="drop-target-label">${item.romaji}</span>
-        <span class="drop-target-sub">Thả chữ vào đây</span>
-      </div>
-    `).join('');
+      if (questionType === 'drag') {
+        const batchItems = [item];
+        for (let i = 1; i < config.dragBatchSize && itemIndex < mistakeItems.length; i++) {
+          batchItems.push(mistakeItems[itemIndex++]);
+        }
+        const decoys = getDecoyItems(batchItems, config.decoyCount);
+        state.questions.push({ type: 'drag', direction, items: batchItems, decoys });
+        remaining--;
+      } else if (questionType === 'mcq') {
+        const wrongItems = getDecoyItems([item], 3);
+        const options = shuffleArray([
+          { value: direction === 'char-to-romaji' ? item.romaji : item.char, correct: true, char: item.char, romaji: item.romaji },
+          ...wrongItems.map(w => ({
+            value: direction === 'char-to-romaji' ? w.romaji : w.char,
+            correct: false,
+            char: w.char,
+            romaji: w.romaji
+          }))
+        ]);
+        state.questions.push({ type: 'mcq', direction, item, options });
+        remaining--;
+      } else {
+        state.questions.push({ type: 'typing', direction, item });
+        remaining--;
+      }
+    }
+
+    state.totalQuestions = state.questions.length;
+    state.currentQuestionIndex = 0;
+    state.matchedCount = 0;
+    state.score = 0;
+    state.combo = 0;
+    state.maxCombo = 0;
+    state.totalAttempts = 0;
+    state.correctAttempts = 0;
+    state.hintsRemaining = config.hintsMax;
+    state.timeLeft = config.timeSeconds;
+    state.currentDragBatchDone = false;
+
+    elements.quizScoreDisplay.textContent = '0';
+    updateComboUI();
+    updateHintsUI();
+
+    switchView('quiz-view');
+
+    if (state.questions.length > 0) {
+      renderCurrentQuestion();
+    }
+
+    if (state.quizMode === 'challenge') {
+      elements.timerBox.style.display = 'flex';
+      startQuizTimer();
+    } else {
+      elements.timerBox.style.display = 'none';
+      stopQuizTimer();
+    }
+  }
+
+  // -- 6h. RENDER CURRENT QUESTION --
+  function renderCurrentQuestion() {
+    if (state.currentQuestionIndex >= state.questions.length) {
+      onQuizComplete();
+      return;
+    }
+
+    const question = state.questions[state.currentQuestionIndex];
+    updateProgressUI();
+
+    // Hide all boards
+    elements.dragBoard.style.display = 'none';
+    elements.mcqBoard.style.display = 'none';
+    elements.typingBoard.style.display = 'none';
+
+    // Show appropriate board
+    if (question.type === 'drag') {
+      renderDragQuestion(question);
+    } else if (question.type === 'mcq') {
+      renderMCQQuestion(question);
+    } else if (question.type === 'typing') {
+      renderTypingQuestion(question);
+    }
+  }
+
+  // -- 6i. UPDATE PROGRESS UI --
+  function updateProgressUI() {
+    const current = state.currentQuestionIndex + 1;
+    const total = state.questions.length;
+    elements.questionCounter.textContent = `Câu ${current} / ${total}`;
+    elements.progressFill.style.width = `${(state.currentQuestionIndex / total) * 100}%`;
+
+    if (state.currentQuestionIndex < state.questions.length) {
+      const q = state.questions[state.currentQuestionIndex];
+      const typeLabels = { drag: '🎯 Kéo Thả', mcq: '📝 Trắc Nghiệm', typing: '⌨️ Gõ Đáp Án' };
+      elements.questionTypeBadge.textContent = typeLabels[q.type] || 'Quiz';
+    }
+  }
+
+  function updateHintsUI() {
+    if (elements.hintsRemainingCount) {
+      if (state.hintsRemaining > 0) {
+        elements.hintsRemainingCount.textContent = `(${state.hintsRemaining})`;
+        elements.quizHintBtn.style.display = '';
+      } else {
+        elements.hintsRemainingCount.textContent = '';
+        if (state.quizLevel >= 3) {
+          elements.quizHintBtn.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  // -- 6j. ADVANCE TO NEXT QUESTION --
+  function advanceToNextQuestion() {
+    state.currentQuestionIndex++;
+    if (state.currentQuestionIndex >= state.questions.length) {
+      setTimeout(onQuizComplete, 500);
+    } else {
+      setTimeout(() => renderCurrentQuestion(), 600);
+    }
+  }
+
+  // ======================================================================
+  // 7. DRAG & DROP QUIZ (Enhanced with Decoys + Bidirectional)
+  // ======================================================================
+  function renderDragQuestion(question) {
+    elements.dragBoard.style.display = 'block';
+    state.currentDragBatchDone = false;
+    
+    // Combine real items + decoys for the drag sources
+    const allDragItems = [...question.items, ...question.decoys];
+    const shuffledDragItems = shuffleArray([...allDragItems]);
+    
+    // Target items are only the real items (shuffled)
+    const shuffledTargetItems = shuffleArray([...question.items]);
+
+    // Determine what to show on cards vs targets based on direction
+    const isReverse = question.direction === 'romaji-to-char';
+    
+    // Drag cards show: char (normal) or romaji (reverse)
+    // Drop targets show: romaji (normal) or char (reverse)
+    elements.draggableContainer.innerHTML = shuffledDragItems.map(item => {
+      const displayText = isReverse ? item.romaji : item.char;
+      const isDecoy = question.decoys.some(d => d.char === item.char);
+      return `
+        <div class="drag-card ${isDecoy ? 'decoy-card' : ''}" 
+             data-char="${item.char}" data-romaji="${item.romaji}">
+          <span class="char-text">${displayText}</span>
+        </div>
+      `;
+    }).join('');
+
+    elements.dropTargetsContainer.innerHTML = shuffledTargetItems.map(item => {
+      const displayLabel = isReverse ? item.char : item.romaji;
+      return `
+        <div class="drop-target" data-romaji="${item.romaji}" data-char="${item.char}">
+          <span class="drop-target-label">${displayLabel}</span>
+          <span class="drop-target-sub">Thả chữ vào đây</span>
+        </div>
+      `;
+    }).join('');
+
+    // Track matched count for this batch
+    state._dragBatchMatched = 0;
+    state._dragBatchTotal = question.items.length;
 
     setupPointerDragEvents();
   }
@@ -396,7 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Create ghost clone for tactile movement
         ghostElement = document.createElement('div');
         ghostElement.className = 'ghost-drag';
-        ghostElement.textContent = card.dataset.char;
+        ghostElement.textContent = card.querySelector('.char-text').textContent;
         ghostElement.style.left = `${e.clientX}px`;
         ghostElement.style.top = `${e.clientY}px`;
         document.body.appendChild(ghostElement);
@@ -457,6 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // SUCCESSFUL DROP MATCH
       state.correctAttempts++;
       state.matchedCount++;
+      state._dragBatchMatched++;
       state.combo++;
       if (state.combo > state.maxCombo) state.maxCombo = state.combo;
 
@@ -495,8 +854,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateComboUI();
 
-      if (state.matchedCount >= state.quizItems.length) {
-        setTimeout(onQuizComplete, 500);
+      // Check if all items in this drag batch are matched
+      if (state._dragBatchMatched >= state._dragBatchTotal) {
+        state.currentDragBatchDone = true;
+        advanceToNextQuestion();
       }
 
     } else {
@@ -518,6 +879,238 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ======================================================================
+  // 8. MCQ QUIZ
+  // ======================================================================
+  function renderMCQQuestion(question) {
+    elements.mcqBoard.style.display = 'block';
+    
+    const isReverse = question.direction === 'romaji-to-char';
+    elements.mcqDirectionBadge.textContent = isReverse ? 'Romaji → Ký tự' : 'Ký tự → Romaji';
+    
+    // Prompt: show the question side
+    const promptText = isReverse ? question.item.romaji : question.item.char;
+    elements.mcqPrompt.textContent = promptText;
+
+    // Dynamic font size for prompt
+    const promptLen = promptText.length;
+    if (promptLen <= 2) {
+      elements.mcqPrompt.style.fontSize = '5rem';
+    } else if (promptLen <= 4) {
+      elements.mcqPrompt.style.fontSize = '3.5rem';
+    } else {
+      elements.mcqPrompt.style.fontSize = '2.2rem';
+    }
+
+    // Speak button
+    elements.mcqSpeakBtn.onclick = () => {
+      sound.speak(question.item.char);
+    };
+
+    // Render options
+    elements.mcqOptionsGrid.innerHTML = question.options.map((opt, idx) => `
+      <button class="mcq-option" data-index="${idx}">${opt.value}</button>
+    `).join('');
+
+    // Add click handlers
+    const optionBtns = elements.mcqOptionsGrid.querySelectorAll('.mcq-option');
+    optionBtns.forEach((btn, idx) => {
+      btn.addEventListener('click', () => handleMCQAnswer(question, idx, optionBtns));
+    });
+  }
+
+  function handleMCQAnswer(question, selectedIndex, allBtns) {
+    state.totalAttempts++;
+    const selectedOption = question.options[selectedIndex];
+    const correctIndex = question.options.findIndex(o => o.correct);
+
+    // Disable all buttons
+    allBtns.forEach(btn => btn.classList.add('mcq-disabled'));
+
+    if (selectedOption.correct) {
+      // CORRECT
+      state.correctAttempts++;
+      state.matchedCount++;
+      state.combo++;
+      if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+      allBtns[selectedIndex].classList.add('mcq-correct');
+
+      if (state.combo > 1) {
+        sound.playFx('combo', state.combo);
+      } else {
+        sound.playFx('correct');
+      }
+      sound.speak(question.item.char);
+
+      const points = 10 * Math.min(state.combo, 5);
+      state.score += points;
+      elements.quizScoreDisplay.textContent = state.score;
+
+      // Resolve mistake if mistakes quiz
+      if (state.isMistakesQuiz) {
+        const index = state.mistakesList.findIndex(m => m.char === question.item.char);
+        if (index >= 0) {
+          state.mistakesList[index].errorCount--;
+          if (state.mistakesList[index].errorCount <= 0) {
+            state.mistakesList.splice(index, 1);
+          }
+          saveMistakes();
+        }
+      }
+
+      updateComboUI();
+      advanceToNextQuestion();
+    } else {
+      // WRONG
+      state.combo = 0;
+      updateComboUI();
+      sound.playFx('wrong');
+
+      allBtns[selectedIndex].classList.add('mcq-wrong');
+      allBtns[correctIndex].classList.add('mcq-correct');
+
+      recordMistake(question.item.char, question.item.romaji);
+
+      if (state.quizMode === 'challenge') {
+        state.timeLeft = Math.max(0, state.timeLeft - 3);
+        elements.timerCountdown.textContent = state.timeLeft;
+      }
+
+      // Wait then advance
+      setTimeout(() => advanceToNextQuestion(), 1200);
+    }
+  }
+
+  // ======================================================================
+  // 9. TYPING QUIZ
+  // ======================================================================
+  function renderTypingQuestion(question) {
+    elements.typingBoard.style.display = 'block';
+
+    const isReverse = question.direction === 'romaji-to-char';
+    elements.typingDirectionBadge.textContent = isReverse ? 'Romaji → Ký tự' : 'Ký tự → Romaji';
+
+    const promptText = isReverse ? question.item.romaji : question.item.char;
+    elements.typingPrompt.textContent = promptText;
+
+    // Dynamic font size
+    const promptLen = promptText.length;
+    if (promptLen <= 2) {
+      elements.typingPrompt.style.fontSize = '5rem';
+    } else if (promptLen <= 4) {
+      elements.typingPrompt.style.fontSize = '3.5rem';
+    } else {
+      elements.typingPrompt.style.fontSize = '2.2rem';
+    }
+
+    // Speak button
+    elements.typingSpeakBtn.onclick = () => {
+      sound.speak(question.item.char);
+    };
+
+    // Reset input
+    elements.typingInput.value = '';
+    elements.typingInput.classList.remove('typing-correct', 'typing-wrong');
+    elements.typingFeedback.textContent = '';
+    elements.typingFeedback.className = 'typing-feedback';
+    elements.typingInput.disabled = false;
+    elements.typingSubmitBtn.disabled = false;
+
+    // Focus input
+    setTimeout(() => elements.typingInput.focus(), 100);
+
+    // Handler
+    const handleSubmit = () => {
+      handleTypingSubmit(question);
+    };
+
+    // Remove old listeners by cloning
+    const newSubmitBtn = elements.typingSubmitBtn.cloneNode(true);
+    elements.typingSubmitBtn.parentNode.replaceChild(newSubmitBtn, elements.typingSubmitBtn);
+    elements.typingSubmitBtn = newSubmitBtn;
+    newSubmitBtn.addEventListener('click', handleSubmit);
+
+    const newInput = elements.typingInput.cloneNode(true);
+    elements.typingInput.parentNode.replaceChild(newInput, elements.typingInput);
+    elements.typingInput = newInput;
+    newInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSubmit();
+    });
+    setTimeout(() => newInput.focus(), 100);
+  }
+
+  function handleTypingSubmit(question) {
+    const userAnswer = elements.typingInput.value.trim().toLowerCase();
+    if (!userAnswer) return;
+
+    state.totalAttempts++;
+    const isReverse = question.direction === 'romaji-to-char';
+    const correctAnswer = isReverse ? question.item.char : question.item.romaji;
+
+    elements.typingInput.disabled = true;
+    elements.typingSubmitBtn.disabled = true;
+
+    if (userAnswer === correctAnswer.toLowerCase()) {
+      // CORRECT
+      state.correctAttempts++;
+      state.matchedCount++;
+      state.combo++;
+      if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+      elements.typingInput.classList.add('typing-correct');
+      elements.typingFeedback.textContent = '✅ Chính xác!';
+      elements.typingFeedback.className = 'typing-feedback feedback-correct';
+
+      if (state.combo > 1) {
+        sound.playFx('combo', state.combo);
+      } else {
+        sound.playFx('correct');
+      }
+      sound.speak(question.item.char);
+
+      const points = 10 * Math.min(state.combo, 5);
+      state.score += points;
+      elements.quizScoreDisplay.textContent = state.score;
+
+      // Resolve mistake if mistakes quiz
+      if (state.isMistakesQuiz) {
+        const index = state.mistakesList.findIndex(m => m.char === question.item.char);
+        if (index >= 0) {
+          state.mistakesList[index].errorCount--;
+          if (state.mistakesList[index].errorCount <= 0) {
+            state.mistakesList.splice(index, 1);
+          }
+          saveMistakes();
+        }
+      }
+
+      updateComboUI();
+      advanceToNextQuestion();
+    } else {
+      // WRONG
+      state.combo = 0;
+      updateComboUI();
+      sound.playFx('wrong');
+
+      elements.typingInput.classList.add('typing-wrong');
+      elements.typingFeedback.innerHTML = `❌ Sai! Đáp án đúng: <strong>${correctAnswer}</strong>`;
+      elements.typingFeedback.className = 'typing-feedback feedback-wrong';
+
+      recordMistake(question.item.char, question.item.romaji);
+
+      if (state.quizMode === 'challenge') {
+        state.timeLeft = Math.max(0, state.timeLeft - 3);
+        elements.timerCountdown.textContent = state.timeLeft;
+      }
+
+      setTimeout(() => advanceToNextQuestion(), 1500);
+    }
+  }
+
+  // ======================================================================
+  // 10. QUIZ UTILITIES (Timer, Combo, Hint)
+  // ======================================================================
   function updateComboUI() {
     if (state.combo > 1) {
       elements.comboBadge.classList.add('active');
@@ -554,35 +1147,65 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showHint() {
+    if (state.hintsRemaining <= 0) return;
+    
     sound.playFx('click');
-    const unmatchedTargets = Array.from(elements.dropTargetsContainer.querySelectorAll('.drop-target:not(.matched)'));
-    if (unmatchedTargets.length === 0) return;
+    state.hintsRemaining--;
+    updateHintsUI();
 
-    const targetToHint = unmatchedTargets[0];
-    const targetRomaji = targetToHint.dataset.romaji;
+    if (state.currentQuestionIndex >= state.questions.length) return;
+    const question = state.questions[state.currentQuestionIndex];
 
-    const sourceCard = Array.from(elements.draggableContainer.querySelectorAll('.drag-card')).find(
-      c => c.dataset.romaji === targetRomaji && c.style.visibility !== 'hidden'
-    );
+    if (question.type === 'drag') {
+      // Highlight a matching pair
+      const unmatchedTargets = Array.from(elements.dropTargetsContainer.querySelectorAll('.drop-target:not(.matched)'));
+      if (unmatchedTargets.length === 0) return;
 
-    if (targetToHint && sourceCard) {
-      targetToHint.classList.add('hover-over');
-      sourceCard.style.transform = 'scale(1.2)';
-      sourceCard.style.borderColor = 'var(--accent-gold)';
+      const targetToHint = unmatchedTargets[0];
+      const targetRomaji = targetToHint.dataset.romaji;
 
-      setTimeout(() => {
-        targetToHint.classList.remove('hover-over');
-        sourceCard.style.transform = '';
-        sourceCard.style.borderColor = '';
-      }, 1500);
+      const sourceCard = Array.from(elements.draggableContainer.querySelectorAll('.drag-card')).find(
+        c => c.dataset.romaji === targetRomaji && c.style.visibility !== 'hidden'
+      );
+
+      if (targetToHint && sourceCard) {
+        targetToHint.classList.add('hover-over');
+        sourceCard.style.transform = 'scale(1.2)';
+        sourceCard.style.borderColor = 'var(--accent-gold)';
+
+        setTimeout(() => {
+          targetToHint.classList.remove('hover-over');
+          sourceCard.style.transform = '';
+          sourceCard.style.borderColor = '';
+        }, 1500);
+      }
+    } else if (question.type === 'mcq') {
+      // Remove one wrong option
+      const wrongBtns = Array.from(elements.mcqOptionsGrid.querySelectorAll('.mcq-option:not(.mcq-disabled):not(.mcq-correct)'));
+      const wrongOptions = wrongBtns.filter((btn, idx) => !question.options[parseInt(btn.dataset.index)].correct);
+      if (wrongOptions.length > 0) {
+        const toRemove = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+        toRemove.classList.add('mcq-disabled');
+      }
+    } else if (question.type === 'typing') {
+      // Show first letter
+      const isReverse = question.direction === 'romaji-to-char';
+      const correctAnswer = isReverse ? question.item.char : question.item.romaji;
+      const hintChars = correctAnswer.substring(0, Math.ceil(correctAnswer.length / 2));
+      elements.typingFeedback.textContent = `💡 Gợi ý: ${hintChars}...`;
+      elements.typingFeedback.className = 'typing-feedback';
+      elements.typingFeedback.style.color = 'var(--accent-gold)';
     }
   }
 
-  // ------------------------------------------------------------------------
-  // 7. QUIZ COMPLETION & CONFETTI CELEBRATION
-  // ------------------------------------------------------------------------
+  // ======================================================================
+  // 11. QUIZ COMPLETION & CONFETTI CELEBRATION
+  // ======================================================================
   function onQuizComplete(isTimeout = false) {
     stopQuizTimer();
+
+    // Update progress bar to 100%
+    elements.progressFill.style.width = '100%';
 
     state.totalScore += state.score;
     localStorage.setItem('kana_total_score', state.totalScore);
@@ -596,7 +1219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (accuracy < 60 || isTimeout) rating = '⭐';
     else if (accuracy < 85) rating = '⭐⭐';
 
-    if (isTimeout && state.matchedCount < state.quizItems.length) {
+    if (isTimeout && state.matchedCount < state.totalQuestions) {
       elements.modalEmoji.textContent = '⏰';
       elements.modalTitle.textContent = 'Hết Giờ!';
       elements.modalSubtitle.textContent = 'Hãy thử lại để đạt kết quả cao hơn nhé!';
@@ -616,9 +1239,9 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.resultModal.classList.add('active');
   }
 
-  // ------------------------------------------------------------------------
-  // 8. FLASHCARD EXPLORER VIEW LOGIC
-  // ------------------------------------------------------------------------
+  // ======================================================================
+  // 12. FLASHCARD EXPLORER VIEW LOGIC
+  // ======================================================================
   function renderExplorerGrid() {
     const group = getCurrentGroup();
     elements.explorerGrid.innerHTML = group.items.map(item => `
@@ -636,9 +1259,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ------------------------------------------------------------------------
-  // 9. MISTAKES NOTEBOOK VIEW LOGIC (SỔ TAY ÔN TẬP LỖI SAI)
-  // ------------------------------------------------------------------------
+  // ======================================================================
+  // 13. MISTAKES NOTEBOOK VIEW LOGIC (SỔ TAY ÔN TẬP LỖI SAI)
+  // ======================================================================
   function renderMistakesView() {
     updateMistakesBadgeCount();
 
@@ -695,9 +1318,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMistakesView();
   };
 
-  // ------------------------------------------------------------------------
-  // 10. EVENT LISTENERS SETUP
-  // ------------------------------------------------------------------------
+  // ======================================================================
+  // 14. EVENT LISTENERS SETUP
+  // ======================================================================
   function setupEventListeners() {
     // Theme toggle
     elements.themeToggleBtn.addEventListener('click', () => {
@@ -772,16 +1395,23 @@ document.addEventListener('DOMContentLoaded', () => {
       switchView('quiz-view');
     });
 
+    // Level selector buttons
+    elements.levelBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sound.playFx('click');
+        state.quizLevel = parseInt(btn.dataset.level, 10);
+        localStorage.setItem('kana_quiz_level', state.quizLevel);
+        updateLevelUI();
+        startNewQuiz();
+      });
+    });
+
     // Quiz mode toggle (Practice vs Challenge)
     elements.quizModeToggleBtn.addEventListener('click', () => {
       sound.playFx('click');
       state.quizMode = state.quizMode === 'challenge' ? 'practice' : 'challenge';
       elements.quizModeToggleBtn.textContent = state.quizMode === 'challenge' ? '⏱️ Thử thách' : '🧘 Luyện tập';
-      if (state.isMistakesQuiz) {
-        initQuizSession();
-      } else {
-        startNewQuiz();
-      }
+      startNewQuiz();
     });
 
     // Quiz Hint button
@@ -836,9 +1466,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ------------------------------------------------------------------------
-  // 11. VISUAL BACKGROUND ANIMATIONS (SAKURA PETALS & CONFETTI)
-  // ------------------------------------------------------------------------
+  // ======================================================================
+  // 15. VISUAL BACKGROUND ANIMATIONS (SAKURA PETALS & CONFETTI)
+  // ======================================================================
   function initSakuraBackground() {
     const canvas = elements.sakuraCanvas;
     const ctx = canvas.getContext('2d');
@@ -941,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function shuffleArray(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[i], arr[j]];
+      [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
   }
