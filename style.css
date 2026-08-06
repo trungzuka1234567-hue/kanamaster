@@ -149,6 +149,19 @@ body {
   filter: drop-shadow(0 2px 8px var(--accent-sakura-glow));
 }
 
+.brand-logo-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 4px 14px var(--accent-sakura-glow);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.brand-logo:hover .brand-logo-img {
+  transform: scale(1.12) rotate(6deg);
+}
+
 .header-controls {
   display: flex;
   align-items: center;
